@@ -1,0 +1,32 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description:
+  "Create a security group to be used by the ECS host instance."
+
+Parameters:
+  ClusterName:
+    Type: "String"
+    Description: "Enter the name of the ECS Cluster."
+    Default: "ecs-cluster"
+  VPCID:
+    Type: "AWS::EC2::VPC::Id"
+    Description: "Select at your VPC."
+
+Resources:
+  ECSSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupName: !Sub "${ClusterName}-ecs-sg"
+      GroupDescription: "Allow access from EC2 only."
+      VpcId: !Ref "VPCID"
+      SecurityGroupIngress:
+        - IpProtocol: "tcp"
+          FromPort: "80"
+          ToPort: "80"
+          CidrIp: "0.0.0.0/0"
+        - IpProtocol: "tcp"
+          FromPort: "443"
+          ToPort: "443"
+          CidrIp: "0.0.0.0/0"
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${ClusterName}-ecs-sg"

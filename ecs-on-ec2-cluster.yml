@@ -1,0 +1,138 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description:
+  "Create an ECS cluster and the resources needed to run it.
+  Specifically, ECS cluster, AutoScaling, Launchtemplate, and an IAM role."
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Parameters:
+          - ClusterName
+          - InstanceType
+          - ECSSubnetIDs
+          - KeyName
+          - ImageId
+          - ECSSecurityGroups
+          - ScalingDesiredCapacity
+          - ScalingMaxSize
+          - ScalingMinSize
+
+Parameters:
+  ClusterName:
+    Type: "String"
+    Description: "Enter the name of the ECS Cluster."
+    Default: "ecs-cluster"
+  InstanceType:
+    Type: "String"
+    Description: "Allowed EC2 instance type."
+    AllowedValues: [t2.nano, t2.micro, t2.small, t2.medium, t2.large, t2.xlarge, t2.2xlarge,
+      t3.nano, t3.micro, t3.small, t3.medium, t3.large, t3.xlarge, t3.2xlarge,
+      m4.large, m4.xlarge, m4.2xlarge, m4.4xlarge,
+      m5.large, m5.xlarge, m5.2xlarge, m5.4xlarge,
+      c3.large, c3.xlarge, c3.2xlarge, c3.4xlarge,
+      c4.large, c4.xlarge, c4.2xlarge, c4.4xlarge,
+      c5.large, c5.xlarge, c5.2xlarge, c5.4xlarge]
+  ECSSubnetIDs:
+    Type: "List<AWS::EC2::Subnet::Id>"
+    Description: "Specify one or more availabilityzones in which to run host instances of ECS."
+  KeyName:
+    Type: "AWS::EC2::KeyPair::KeyName"
+    Description: "Select at your EC2 KeyPair."
+  ImageId:
+    Type: "AWS::EC2::Image::Id"
+    Description: "Specify the ECS-optimized AMI host instance."
+    Default: "ami-0f4146903324aaa5b"
+  ECSSecurityGroups:
+    Type: "List<AWS::EC2::SecurityGroup::Id>"
+    Description: "Select the security group to be used for the host instance of ECS."
+  ScalingDesiredCapacity:
+    Type: "Number"
+    Description: "Desired number of host instances for ECS clusters."
+    Default: "1"
+  ScalingMaxSize:
+    Type: "Number"
+    Description: "Maximum number of host instances for ECS clusters."
+    Default: "3"
+  ScalingMinSize:
+    Type: "Number"
+    Description: "Minimum number of host instances for ECS clusters."
+    Default: "1"
+
+Resources:
+  EcsCluster:
+    Type: "AWS::ECS::Cluster"
+    Properties: 
+      ClusterName: !Ref "ClusterName"
+      ClusterSettings: 
+        - Name: "containerInsights"
+          Value: "disabled"
+      Tags: 
+        - Key: "Name"
+          Value: !Ref "ClusterName"
+
+  AutoScaling:
+    Type: "AWS::AutoScaling::AutoScalingGroup"
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MaxBatchSize: 1
+        MinInstancesInService: 1
+    Properties: 
+      AutoScalingGroupName: !Sub "${ClusterName}-asg"
+      Cooldown: "300"
+      DesiredCapacity: !Ref "ScalingDesiredCapacity"
+      MaxSize: !Ref "ScalingMaxSize"
+      MinSize: !Ref "ScalingMinSize"
+      LaunchConfigurationName: !Ref "LaunchConfiguration"
+      TerminationPolicies: 
+        - "OldestInstance"
+      VPCZoneIdentifier: !Ref "ECSSubnetIDs"
+      Tags: 
+        - Key: "Name"
+          Value: !Sub "${ClusterName}-ecs-instance"
+          PropagateAtLaunch: "true"
+
+  LaunchConfiguration:
+    Type: "AWS::AutoScaling::LaunchConfiguration"
+    Properties: 
+      AssociatePublicIpAddress: "true"
+      BlockDeviceMappings: 
+        - DeviceName: "/dev/xvda"
+          Ebs: 
+            VolumeType: "gp3"
+            VolumeSize: "30"
+      EbsOptimized: "false"
+      IamInstanceProfile: !Ref "EcsInstanceProfile"
+      ImageId: !Ref "ImageId"
+      InstanceMonitoring: "false"
+      InstanceType: !Ref "InstanceType"
+      KeyName: !Ref "KeyName"
+      SecurityGroups: !Ref "ECSSecurityGroups"
+      UserData: 
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          echo "ECS_CLUSTER=${ClusterName}" >> /etc/ecs/ecs.config
+
+  EcsInstanceRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub "${ClusterName}-instance-role"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
+        - "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "ec2.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+
+  EcsInstanceProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+      Path: "/"
+      Roles:
+        - !Ref "EcsInstanceRole"
+      InstanceProfileName: !Sub "${ClusterName}-instance-role"
