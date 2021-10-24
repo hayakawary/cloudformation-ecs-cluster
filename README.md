@@ -45,3 +45,5 @@ ECSクラスター名<br>
 <br>
 ⑤使用<br>
 ECSコンテナの外部リンクをクリック<br>
+redmineのトップページが表示できれば完了。<br>
+※デフォルトのID/PWはadmin/admin<br>
