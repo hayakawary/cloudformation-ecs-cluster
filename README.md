@@ -1,7 +1,7 @@
 # redmineをECSクラスタで構築
 ※ローカルで使用していたredmineをECSで構築
 
-①リポジトリ作成
+①リポジトリ作成　　
 cloudformationのスタック作成からテンプレートファイルのアップロードで以下のファイルをアップロードする。　　
 ecr-repository.yml　　
 　　
