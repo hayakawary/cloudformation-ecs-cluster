@@ -16,7 +16,7 @@ Resources:
     Type: "AWS::EC2::SecurityGroup"
     Properties:
       GroupName: !Sub "${ClusterName}-ecs-sg"
-      GroupDescription: "Allow access from EC2 only."
+      GroupDescription: "Allow access from EC2"
       VpcId: !Ref "VPCID"
       SecurityGroupIngress:
         - IpProtocol: "tcp"
@@ -27,6 +27,7 @@ Resources:
           FromPort: "443"
           ToPort: "443"
           CidrIp: "0.0.0.0/0"
+          #sshなど追加したい場合以下に追加
       Tags:
         - Key: "Name"
           Value: !Sub "${ClusterName}-ecs-sg"
